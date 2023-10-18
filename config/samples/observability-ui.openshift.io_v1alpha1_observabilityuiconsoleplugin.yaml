@@ -1,0 +1,12 @@
+apiVersion: observability-ui.openshift.io.observability.openshift.io/v1alpha1
+kind: ObservabilityUIConsolePlugin
+metadata:
+  labels:
+    app.kubernetes.io/name: observabilityuiconsoleplugin
+    app.kubernetes.io/instance: observabilityuiconsoleplugin-sample
+    app.kubernetes.io/part-of: observability-ui-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: observability-ui-operator
+  name: observabilityuiconsoleplugin-sample
+spec:
+  # TODO(user): Add fields here

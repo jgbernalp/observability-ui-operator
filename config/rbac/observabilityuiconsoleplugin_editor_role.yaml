@@ -1,0 +1,31 @@
+# permissions for end users to edit observabilityuiconsoleplugins.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: observabilityuiconsoleplugin-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: observability-ui-operator
+    app.kubernetes.io/part-of: observability-ui-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: observabilityuiconsoleplugin-editor-role
+rules:
+- apiGroups:
+  - observability-ui.openshift.io.observability.openshift.io
+  resources:
+  - observabilityuiconsoleplugins
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - observability-ui.openshift.io.observability.openshift.io
+  resources:
+  - observabilityuiconsoleplugins/status
+  verbs:
+  - get

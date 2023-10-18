@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - observability-ui.openshift.io.observability.openshift.io
+  resources:
+  - observabilityuiconsoleplugins
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - observability-ui.openshift.io.observability.openshift.io
+  resources:
+  - observabilityuiconsoleplugins/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - observability-ui.openshift.io.observability.openshift.io
+  resources:
+  - observabilityuiconsoleplugins/status
+  verbs:
+  - get
+  - patch
+  - update
