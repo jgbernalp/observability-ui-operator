@@ -1,5 +1,5 @@
 /*
-Red Hat Copyright 2023.
+Copyright 2023 Red Hat.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	observabilityuiopenshiftiov1alpha1 "github.com/jgbernalp/observability-ui-operator/api/v1alpha1"
+	observabilityuiopenshiftiov1alpha1 "github.com/openshift/observability-ui-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

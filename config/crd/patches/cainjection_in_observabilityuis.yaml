@@ -4,4 +4,4 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
-  name: observabilityuiconsoleplugins.observability-ui.openshift.io.observability.openshift.io
+  name: observabilityuis.observability-ui.openshift.io

@@ -1,0 +1,13 @@
+apiVersion: observability-ui.openshift.io/v1alpha1
+kind: ObservabilityUI
+metadata:
+  labels:
+    app.kubernetes.io/name: observability-ui
+    app.kubernetes.io/instance: observability-ui-dev
+    app.kubernetes.io/part-of: observability-ui-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: observability-ui-operator
+  name: observability-ui-plugin
+spec:
+  deployment:
+    port: 9443

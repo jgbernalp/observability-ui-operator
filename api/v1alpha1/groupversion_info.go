@@ -1,5 +1,5 @@
 /*
-Red Hat Copyright 2023.
+Copyright 2023 Red Hat.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the observability-ui.openshift.io v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=observability-ui.openshift.io.observability.openshift.io
+// +groupName=observability-ui.openshift.io
 package v1alpha1
 
 import (
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "observability-ui.openshift.io.observability.openshift.io", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "observability-ui.openshift.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

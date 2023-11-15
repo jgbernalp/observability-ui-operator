@@ -2,22 +2,31 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: observability.openshift.io
+domain: observability-ui.openshift.io
 layout:
-- go.kubebuilder.io/v3
+  - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: observability-ui-operator
-repo: github.com/jgbernalp/observability-ui-operator
+repo: github.com/openshift/observability-ui-operator
 resources:
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: observability.openshift.io
-  group: observability-ui.openshift.io
-  kind: ObservabilityUIConsolePlugin
-  path: github.com/jgbernalp/observability-ui-operator/api/v1alpha1
-  version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: openshift.io
+    group: observability-ui.openshift.io
+    kind: ObservabilityUIPlugin
+    path: github.com/openshift/observability-ui-operator/api/v1alpha1
+    version: v1alpha1
+  - api:
+      crdVersion: v1
+      namespaced: true
+    controller: true
+    domain: openshift.io
+    group: observability-ui.openshift.io
+    kind: ObservabilityUI
+    path: github.com/openshift/observability-ui-operator/api/v1alpha1
+    version: v1alpha1
 version: "3"

@@ -6,9 +6,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - observability-ui.openshift.io.observability.openshift.io
+  - observability-ui.openshift.io
   resources:
-  - observabilityuiconsoleplugins
+  - observabilityuiplugins
   verbs:
   - create
   - delete
@@ -18,15 +18,15 @@ rules:
   - update
   - watch
 - apiGroups:
-  - observability-ui.openshift.io.observability.openshift.io
+  - observability-ui.openshift.io
   resources:
-  - observabilityuiconsoleplugins/finalizers
+  - observabilityuiplugins/finalizers
   verbs:
   - update
 - apiGroups:
-  - observability-ui.openshift.io.observability.openshift.io
+  - observability-ui.openshift.io
   resources:
-  - observabilityuiconsoleplugins/status
+  - observabilityuiplugins/status
   verbs:
   - get
   - patch

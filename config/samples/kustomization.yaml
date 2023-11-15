@@ -1,4 +1,5 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- observability-ui.openshift.io_v1alpha1_observabilityuiconsoleplugin.yaml
+  - observability-ui.openshift.io_v1alpha1_observabilityuiplugin.yaml
+  - observability-ui.openshift.io_v1alpha1_observabilityui.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

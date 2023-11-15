@@ -1,0 +1,19 @@
+apiVersion: observability-ui.openshift.io/v1alpha1
+kind: ObservabilityUIPlugin
+metadata:
+  labels:
+    app.kubernetes.io/name: observabilityuiplugin
+    app.kubernetes.io/instance: observabilityuiplugin-sample
+    app.kubernetes.io/part-of: observability-ui-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: observability-ui-operator
+  name: logging-view-plugin
+spec:
+  displayName: "Logging Console Plugin"
+  version: "dev"
+  type: logs
+  services:
+    - alias: backend
+      name: lokistack-dev
+      namespace: openshift-logging
+      port: 8080

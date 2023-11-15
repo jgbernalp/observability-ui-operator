@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2023 Red Hat.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"os"
 
@@ -24,15 +25,20 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	osv1 "github.com/openshift/api/console/v1"
+	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	observabilityuiopenshiftiov1alpha1 "github.com/jgbernalp/observability-ui-operator/api/v1alpha1"
-	"github.com/jgbernalp/observability-ui-operator/controllers"
+	"github.com/openshift/observability-ui-operator/api/v1alpha1"
+	"github.com/openshift/observability-ui-operator/controllers/operator"
+	"github.com/openshift/observability-ui-operator/controllers/plugins"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -44,7 +50,9 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(observabilityuiopenshiftiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(osv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(osv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -52,11 +60,14 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var enableHTTP2 bool
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&enableHTTP2, "enable-http2", enableHTTP2, "If HTTP/2 should be enabled for the metrics and webhook servers.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -65,35 +76,47 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	disableHTTP2 := func(c *tls.Config) {
+		if enableHTTP2 {
+			return
+		}
+		c.NextProtos = []string{"http/1.1"}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+			TLSOpts:     []func(*tls.Config){disableHTTP2},
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			TLSOpts: []func(*tls.Config){disableHTTP2},
+		}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "04e42355.observability.openshift.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		LeaderElectionID:       "99209ff4.observability-ui.openshift.io",
+		// TODO: add cache watching filter using selectors
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ConsolePluginReconciler{
+	if err = (&plugins.ObservabilityUIPluginReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cfg:    mgr.GetConfig(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityUIConsolePlugin")
+		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityUIPlugin")
+		os.Exit(1)
+	}
+	if err = (&operator.ObservabilityUIReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cfg:    mgr.GetConfig(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityUI")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

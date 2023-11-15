@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# observability.openshift.io/observability-ui-operator-bundle:$VERSION and observability.openshift.io/observability-ui-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= observability.openshift.io/observability-ui-operator
+# openshift.io/observability-ui-operator-bundle:$VERSION and openshift.io/observability-ui-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= quay.io/gbernal/observability-ui-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -108,6 +108,9 @@ vet: ## Run go vet against code.
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+
+lint: ## Run linting.
+	golangci-lint run
 
 ##@ Build
 
