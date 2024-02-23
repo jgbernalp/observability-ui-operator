@@ -23,7 +23,7 @@ import (
 	"slices"
 	"time"
 
-	osv1 "github.com/openshift/api/console/v1"
+	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	"github.com/pkg/errors"
 
 	openshiftoperatorclientset "github.com/openshift/client-go/operator/clientset/versioned"
@@ -42,7 +42,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openshift/observability-ui-operator/api/v1alpha1"
@@ -61,18 +60,17 @@ const pluginRole = "observability-ui-plugin-editor"
 
 // +kubebuilder:rbac:groups=observability-ui.openshift.io,resources=observabilityuis,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=observability-ui.openshift.io,resources=observabilityuis/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=observability-ui.openshift.io,resources=observabilityuis/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=servicesaccounts,verbs=get;list;watch;create;update;patch;delete
 func (r *ObservabilityUIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	log.WithValues("observability-ui", req.NamespacedName)
 
 	subreconcilersForObservabilityUI := []subreconciler.FnWithRequest{
 		r.setStatusToUnknown,
-		r.addFinalizer,
 		r.handleDelete,
 		r.reconcileServiceAccount,
 		r.reconcileClusterRole,
@@ -113,32 +111,6 @@ func (r *ObservabilityUIReconciler) setStatusToUnknown(ctx context.Context, req 
 		meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"})
 		if err := r.Status().Update(ctx, obsUI); err != nil {
 			log.Error(err, "Failed to update ObservabilityUI status")
-			return subreconciler.RequeueWithError(err)
-		}
-	}
-
-	return subreconciler.ContinueReconciling()
-}
-
-func (r *ObservabilityUIReconciler) addFinalizer(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	log.WithValues("observability-ui", req.NamespacedName)
-
-	obsUI := &v1alpha1.ObservabilityUI{}
-
-	if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
-	}
-
-	if !controllerutil.ContainsFinalizer(obsUI, common.ObservabilityUIFinalizer) {
-		log.Info("Adding Finalizer for ObservabilityUI")
-		if ok := controllerutil.AddFinalizer(obsUI, common.ObservabilityUIFinalizer); !ok {
-			log.Error(nil, "Failed to add finalizer into the custom resource")
-			return subreconciler.Requeue()
-		}
-
-		if err := r.Update(ctx, obsUI); err != nil {
-			log.Error(err, "Failed to update custom resource to add finalizer")
 			return subreconciler.RequeueWithError(err)
 		}
 	}
@@ -192,6 +164,10 @@ func (r *ObservabilityUIReconciler) reconcileServiceAccount(ctx context.Context,
 			meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI,
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create service account for (%s): (%s)", obsUI.Name, err)})
+
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
 
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update observabilityUIPlugin status")
@@ -254,6 +230,10 @@ func (r *ObservabilityUIReconciler) reconcileClusterRole(ctx context.Context, re
 			meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI,
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create cluster role for (%s): (%s)", obsUI.Name, err)})
+
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
 
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update observabilityUIPlugin status")
@@ -328,6 +308,10 @@ func (r *ObservabilityUIReconciler) reconcileClusterRoleBinding(ctx context.Cont
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create cluster role binding for (%s): (%s)", obsUI.Name, err)})
 
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
+
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update observabilityUIPlugin status")
 				return subreconciler.RequeueWithError(err)
@@ -383,6 +367,10 @@ func (r *ObservabilityUIReconciler) reconcileService(ctx context.Context, req ct
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create service for the custom resource %s: %s", obsUI.Name, err)})
 
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
+
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update ObservabilityUI status")
 				return subreconciler.RequeueWithError(err)
@@ -412,117 +400,10 @@ func (r *ObservabilityUIReconciler) handleDelete(ctx context.Context, req ctrl.R
 
 	isObsUIMarkedToBeDeleted := obsUI.GetDeletionTimestamp() != nil
 	if isObsUIMarkedToBeDeleted {
-		if controllerutil.ContainsFinalizer(obsUI, common.ObservabilityUIFinalizer) {
-			log.Info("Performing Finalizer Operations for ObservabilityUI before delete CR")
-
-			meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeDegradedObservabilityUI,
-				Status: metav1.ConditionUnknown, Reason: "Finalizing",
-				Message: fmt.Sprintf("Performing finalizer operations for the custom resource: %s ", obsUI.Name)})
-
-			if err := r.Status().Update(ctx, obsUI); err != nil {
-				log.Error(err, "Failed to update ObservabilityUI status")
-				return subreconciler.RequeueWithError(err)
-			}
-
-			// Perform all operations required before remove the finalizer and allow
-			// the Kubernetes API to remove the custom resource.
-			r.doFinalizerOperationsForObservabilityUI(ctx, req, obsUI)
-
-			// TODO(user): If you add operations to the doFinalizerOperationsForObservabilityUI method
-			// then you need to ensure that all worked fine before deleting and updating the Downgrade status
-			// otherwise, you should requeue here.
-
-			// Re-fetch the ObservabilityUI Custom Resource before update the status
-			// so that we have the latest state of the resource on the cluster and we will avoid
-			// raise the issue "the object has been modified, please apply
-			// your changes to the latest version and try again" which would re-trigger the reconciliation
-			if err := r.Get(ctx, req.NamespacedName, obsUI); err != nil {
-				log.Error(err, "Failed to re-fetch ObservabilityUI")
-				return subreconciler.RequeueWithError(err)
-			}
-
-			meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeDegradedObservabilityUI,
-				Status: metav1.ConditionTrue, Reason: "Finalizing",
-				Message: fmt.Sprintf("Finalizer operations for custom resource %s name were successfully accomplished", obsUI.Name)})
-
-			if err := r.Status().Update(ctx, obsUI); err != nil {
-				log.Error(err, "Failed to update ObservabilityUI status")
-				return subreconciler.RequeueWithError(err)
-			}
-
-			log.Info("Removing Finalizer for ObservabilityUI after successfully perform the operations")
-			if ok := controllerutil.RemoveFinalizer(obsUI, common.ObservabilityUIFinalizer); !ok {
-				log.Error(nil, "Failed to remove finalizer for ObservabilityUI")
-				return subreconciler.Requeue()
-			}
-
-			if err := r.Update(ctx, obsUI); err != nil {
-				log.Error(err, "Failed to remove finalizer for ObservabilityUI")
-				return subreconciler.RequeueWithError(err)
-			}
-		}
-
 		return subreconciler.DoNotRequeue()
 	}
 
 	return subreconciler.ContinueReconciling()
-}
-
-func (r *ObservabilityUIReconciler) doFinalizerOperationsForObservabilityUI(ctx context.Context, req ctrl.Request, obsUI *v1alpha1.ObservabilityUI) {
-	log := log.FromContext(ctx)
-	log.WithValues("observability-ui", req.NamespacedName)
-
-	defaultNamespace := common.GetObservabilityUINamespace()
-
-	builder, err := consoleplugin.FromObsUI(obsUI, defaultNamespace)
-
-	if r.Recorder != nil {
-		r.Recorder.Event(obsUI, "Warning", "Deleting",
-			fmt.Sprintf("custom resource %s is being deleted", obsUI.Name))
-	}
-
-	if err != nil {
-		log.Error(err, fmt.Sprintf("failed to create builder for the custom resource finalizer (%s)", obsUI.Name))
-		return
-	}
-
-	consoleClient := r.osopclient.OperatorV1().Consoles()
-
-	console, err := consoleClient.Get(ctx, clusterConsole, metav1.GetOptions{})
-	if err != nil {
-		log.Error(err, fmt.Sprintf("retrieving console %s failed", clusterConsole))
-		return
-	}
-
-	index := slices.Index(console.Spec.Plugins, builder.ConsolePluginName())
-
-	if index == -1 {
-		log.Info(fmt.Sprintf("console does not contain plugin %s", builder.ConsolePluginName()))
-		return
-	}
-
-	var patches []jsonPatch
-
-	if console.Spec.Plugins != nil {
-		patches = []jsonPatch{{
-			Op:   "remove",
-			Path: fmt.Sprintf("/spec/plugins/%d", index),
-		}}
-	}
-
-	patchBytes, err := json.Marshal(patches)
-	if err != nil {
-		log.Error(err, "failed to marshal the console patch while disabling the dynamic plugin")
-		return
-	}
-
-	log.Info(fmt.Sprintf("disabling plugin %s in console %s", builder.ConsolePluginName(), clusterConsole))
-	_, err = consoleClient.Patch(ctx, clusterConsole, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-
-	if err != nil {
-		log.Info(fmt.Sprintf("console plugin not found for %s", obsUI.Name))
-		return
-	}
 }
 
 func (r *ObservabilityUIReconciler) getLatestObsUI(ctx context.Context, req ctrl.Request, obsUI *v1alpha1.ObservabilityUI) (*ctrl.Result, error) {
@@ -578,6 +459,10 @@ func (r *ObservabilityUIReconciler) reconcileDeployment(ctx context.Context, req
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create deployment for the custom resource (%s): (%s)", obsUI.Name, err)})
 
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
+
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update ObservabilityUI status")
 				return subreconciler.RequeueWithError(err)
@@ -613,7 +498,7 @@ func (r *ObservabilityUIReconciler) reconcileConsolePlugin(ctx context.Context, 
 
 	// TODO: check if the cluster does not support console plugin v1
 
-	found := &osv1.ConsolePlugin{}
+	found := &osv1alpha1.ConsolePlugin{}
 	err = r.Get(ctx, types.NamespacedName{Name: builder.ConsolePluginName()}, found)
 
 	if err != nil && apierrors.IsNotFound(err) {
@@ -629,6 +514,10 @@ func (r *ObservabilityUIReconciler) reconcileConsolePlugin(ctx context.Context, 
 			meta.SetStatusCondition(&obsUI.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI,
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create the console plugin %s: %s", obsUI.Name, err)})
+
+			if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
 
 			if err := r.Status().Update(ctx, obsUI); err != nil {
 				log.Error(err, "failed to update observabilityUI status")
@@ -707,6 +596,10 @@ func (r *ObservabilityUIReconciler) registerPluginInConsole(ctx context.Context,
 			Status: metav1.ConditionFalse, Reason: "Reconciling",
 			Message: fmt.Sprintf("failed to register console-plugin %s with console %s: %s", obsUI.Name, clusterConsole, err)})
 
+		if r, err := r.getLatestObsUI(ctx, req, obsUI); subreconciler.ShouldHaltOrRequeue(r, err) {
+			return r, err
+		}
+
 		if err := r.Status().Update(ctx, obsUI); err != nil {
 			log.Error(err, "failed to update observabilityUI status")
 			return subreconciler.RequeueWithError(err)
@@ -735,7 +628,7 @@ func (r *ObservabilityUIReconciler) updateStatus(ctx context.Context, req ctrl.R
 		return subreconciler.RequeueWithError(err)
 	}
 
-	return subreconciler.ContinueReconciling()
+	return subreconciler.DoNotRequeue()
 }
 
 func (r *ObservabilityUIReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -5,29 +5,137 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-- apiGroups:
-  - observability-ui.openshift.io
-  resources:
-  - observabilityuiplugins
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - observability-ui.openshift.io
-  resources:
-  - observabilityuiplugins/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - observability-ui.openshift.io
-  resources:
-  - observabilityuiplugins/status
-  verbs:
-  - get
-  - patch
-  - update
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuis
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuis/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuis/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuiplugins
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuiplugins/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - observability-ui.openshift.io
+    resources:
+      - observabilityuiplugins/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+    verbs:
+      - get
+      - create
+      - delete
+      - list
+      - watch
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterrolebindings
+    verbs:
+      - get
+      - create
+      - delete
+      - list
+      - watch
+  - apiGroups:
+      - console.openshift.io
+    resources:
+      - consoleplugins
+    verbs:
+      - get
+      - create
+      - delete
+      - patch
+      - list
+      - watch
+  - apiGroups:
+      - operator.openshift.io
+    resources:
+      - consoles
+    verbs:
+      - get
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - configmaps
+    verbs:
+      - get
+      - patch
+      - update
+      - create
+      - delete
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - get
+      - patch
+      - update
+      - create
+      - delete
+      - list
+      - watch

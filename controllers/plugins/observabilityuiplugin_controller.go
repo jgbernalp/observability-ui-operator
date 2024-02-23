@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	osv1 "github.com/openshift/api/console/v1"
+	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 
 	openshiftoperatorclientset "github.com/openshift/client-go/operator/clientset/versioned"
 	"github.com/openshift/observability-ui-operator/api/v1alpha1"
@@ -122,7 +122,7 @@ func (r *ObservabilityUIPluginReconciler) getLatestObsUI(ctx context.Context, re
 			return subreconciler.DoNotRequeue()
 		}
 		log.Error(err, "failed to get ObservabilityUI")
-		return subreconciler.RequeueWithError(err)
+		return subreconciler.RequeueWithDelayAndError(time.Second, err)
 	}
 
 	return subreconciler.ContinueReconciling()
@@ -142,7 +142,7 @@ func (r *ObservabilityUIPluginReconciler) setStatusToUnknown(ctx context.Context
 		meta.SetStatusCondition(&obsUIPlugin.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"})
 		if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 			log.Error(err, "failed to update ObservabilityUI status")
-			return subreconciler.RequeueWithError(err)
+			return subreconciler.RequeueWithDelayAndError(time.Second, err)
 		}
 	}
 
@@ -166,9 +166,13 @@ func (r *ObservabilityUIPluginReconciler) addFinalizer(ctx context.Context, req 
 			return subreconciler.Requeue()
 		}
 
+		if r, err := r.getLatestObsUI(ctx, req, obsUIPlugin); subreconciler.ShouldHaltOrRequeue(r, err) {
+			return r, err
+		}
+
 		if err := r.Update(ctx, obsUIPlugin); err != nil {
 			log.Error(err, "failed to update custom resource to add finalizer")
-			return subreconciler.RequeueWithError(err)
+			return subreconciler.RequeueWithDelayAndError(time.Second, err)
 		}
 	}
 
@@ -222,7 +226,7 @@ func (r *ObservabilityUIPluginReconciler) handleDelete(ctx context.Context, req 
 
 			if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 				log.Error(err, "failed to update ObservabilityUIPlugin status")
-				return subreconciler.RequeueWithError(err)
+				return subreconciler.RequeueWithDelayAndError(time.Second, err)
 			}
 
 			log.Info("removing finalizer for ObservabilityUI after successfully perform the operations")
@@ -277,13 +281,17 @@ func (r *ObservabilityUIPluginReconciler) reconcileDeployment(ctx context.Contex
 		if err = r.Create(ctx, dep); err != nil {
 			log.Error(err, fmt.Sprintf("failed to create new deployment: namespace %s name %s", dep.Namespace, dep.Name))
 
+			if r, err := r.getLatestObsUI(ctx, req, obsUIPlugin); subreconciler.ShouldHaltOrRequeue(r, err) {
+				return r, err
+			}
+
 			meta.SetStatusCondition(&obsUIPlugin.Status.Conditions, metav1.Condition{Type: common.TypeAvailableObservabilityUI,
 				Status: metav1.ConditionFalse, Reason: "Reconciling",
 				Message: fmt.Sprintf("failed to create deployment for (%s): (%s)", obsUIPlugin.Name, err)})
 
 			if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 				log.Error(err, "failed to update observabilityUIPlugin status")
-				return subreconciler.RequeueWithError(err)
+				return subreconciler.RequeueWithDelayAndError(time.Second, err)
 			}
 
 			return subreconciler.RequeueWithError(err)
@@ -337,7 +345,7 @@ func (r *ObservabilityUIPluginReconciler) reconcileService(ctx context.Context, 
 
 			if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 				log.Error(err, "failed to update ObservabilityUIPlugin status")
-				return subreconciler.RequeueWithError(err)
+				return subreconciler.RequeueWithDelayAndError(time.Second, err)
 			}
 
 			return subreconciler.RequeueWithError(err)
@@ -361,7 +369,9 @@ func (r *ObservabilityUIPluginReconciler) registerPluginInConsole(ctx context.Co
 		return r, err
 	}
 
-	builder, err := consoleplugin.FromObsUIPlugin(obsUIPlugin, common.GetObservabilityUINamespace())
+	defaultNamespace := common.GetObservabilityUINamespace()
+
+	builder, err := consoleplugin.FromObsUIPlugin(obsUIPlugin, defaultNamespace)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("failed to create builder for the custom resource console plugin (%s)", obsUIPlugin.Name))
 		return subreconciler.RequeueWithError(err)
@@ -414,7 +424,7 @@ func (r *ObservabilityUIPluginReconciler) registerPluginInConsole(ctx context.Co
 
 		if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 			log.Error(err, "failed to update observabilityUIPlugin status")
-			return subreconciler.RequeueWithError(err)
+			return subreconciler.RequeueWithDelayAndError(time.Second, err)
 		}
 
 		return subreconciler.RequeueWithError(err)
@@ -442,15 +452,12 @@ func (r *ObservabilityUIPluginReconciler) reconcileConsolePlugin(ctx context.Con
 
 	// TODO: check if the cluster does not support console plugin v1
 
-	found := &osv1.ConsolePlugin{}
+	found := &osv1alpha1.ConsolePlugin{}
 	err = r.Get(ctx, types.NamespacedName{Name: builder.ConsolePluginName()}, found)
 
 	if err != nil && apierrors.IsNotFound(err) {
 		log.Info(fmt.Sprintf("creating a new console plugin: %s", builder.ConsolePluginName()))
-		cp := builder.GetConsolePluginV1()
-		log.Info(fmt.Sprintf("%v", builder))
-
-		log.Info(fmt.Sprintf("%v", cp.Spec.Proxy))
+		cp := builder.GetConsolePluginV1Alpha1()
 
 		if err := ctrl.SetControllerReference(obsUIPlugin, cp, r.Scheme); err != nil {
 			log.Error(err, "failed to set controller reference for console plugin")
@@ -464,7 +471,7 @@ func (r *ObservabilityUIPluginReconciler) reconcileConsolePlugin(ctx context.Con
 
 			if err := r.Status().Update(ctx, obsUIPlugin); err != nil {
 				log.Error(err, "failed to update observabilityUIPlugin status")
-				return subreconciler.RequeueWithError(err)
+				return subreconciler.RequeueWithDelayAndError(time.Second, err)
 			}
 
 			log.Error(err, fmt.Sprintf("failed to create new console plugin: %s", cp.Name))

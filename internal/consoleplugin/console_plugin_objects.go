@@ -34,13 +34,13 @@ func getPluginImageFromType(pluginType string, version string) (*PluginImageName
 	switch pluginType {
 	case "logs":
 		return &PluginImageName{
-			Image: fmt.Sprintf("quay.io/gbernal/logging-view-plugin:%s", version),
+			Image: fmt.Sprintf("quay.io/openshift-observability-ui/logging-view-plugin:%s", version),
 			Name:  "logging-view-plugin",
 		}, nil
 	case "dashboards":
 		return &PluginImageName{
-			Image: fmt.Sprintf("quay.io/gbernal/console-dashboards-plugin:%s", version),
-			Name:  "console-dashboards-plugin",
+			Image: fmt.Sprintf("quay.io/openshift-observability-ui/dashboards-console-plugin:%s", version),
+			Name:  "dashboards-console-plugin",
 		}, nil
 	}
 

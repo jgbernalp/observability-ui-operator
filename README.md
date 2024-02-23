@@ -11,6 +11,27 @@
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
+### Install using operator-sdk
+
+#### Prerequisites
+
+- You have administrator permissions on an Red Hat OpenShift Container Platform cluster version 4.12 or newer.
+
+#### Steps
+
+1. Install the [operator-sdk CLI tool](https://sdk.operatorframework.io/docs/installation/)
+2. Create the `openshift-observability-ui` namespace:
+
+```sh
+oc create namespace openshift-observability-ui
+```
+
+3. Install the operator:
+
+```sh
+operator-sdk -n openshift-observability-ui run bundle quay.io/openshift-observability-ui/observability-ui-operator:0.0.1
+```
+
 ### Running on the cluster
 
 1. Install Instances of Custom Resources:
